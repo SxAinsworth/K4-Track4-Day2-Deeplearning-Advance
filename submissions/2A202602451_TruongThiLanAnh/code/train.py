@@ -34,6 +34,7 @@ class Config:
     measure_latency: bool = False; latency_dtype: str = "amp"
     latency_warmup: int = 10; latency_iters: int = 30
     resume_completed: bool = True
+    curve_label: str | None = None
 
 
 def run_dir(cfg): return Path(cfg.out_dir)/cfg.exp_id/f"seed{cfg.seed}"
@@ -182,7 +183,8 @@ def run(cfg):
         names,yt,lt,_=evaluate(net,test_loader,criterion,device)
         save_predictions(pred_path(cfg,"test"),names,yt,_probs(lt)); np.save(out/"test_logits.npy",lt)
     architecture=cfg.backbone.split(".")[0]
-    curve_path=Path(cfg.curves_dir)/f"{cfg.exp_id}_{architecture}.png"
+    curve_label=cfg.curve_label or architecture
+    curve_path=Path(cfg.curves_dir)/f"{cfg.exp_id}_{curve_label}.png"
     plot_curves(history,curve_path,f"{cfg.exp_id} — {cfg.backbone}")
     gmac=model_utils.count_gmacs(net,cfg.img_size)
     latency={}
@@ -190,6 +192,7 @@ def run(cfg):
         latency=benchmark.latency_report(net,1,cfg.img_size,cfg.latency_dtype,str(device),cfg.latency_warmup,cfg.latency_iters)
     summary={"best_epoch":best_epoch,"val_macro_f1":metrics["macro_f1"],"val_top1":metrics["top1"],
              "val_loss":val_loss,"params_m":model_utils.count_params(net),
+             "val_f1_per_class":metrics["f1"].tolist(),"val_recall_per_class":metrics["recall"].tolist(),
              "gmac":gmac,"mean_train_seconds":float(np.mean([r["train_seconds"] for r in history])),
              "exp_id":cfg.exp_id,"backbone":architecture,"pretrained_tag":cfg.backbone,
              "img_size":cfg.img_size,"epochs":cfg.epochs,"seed":cfg.seed,
