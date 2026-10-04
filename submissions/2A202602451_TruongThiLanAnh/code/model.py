@@ -73,12 +73,14 @@ def count_params(model) -> float:
 
 
 def count_gmacs(model, img_size: int = 224) -> float:
-    try:
-        from thop import profile
-    except ImportError as exc:
-        raise ImportError("Cài thop để đếm GMAC") from exc
+    """GMAC của một ảnh, đếm bằng torch.utils.flop_counter (có sẵn trong torch; đếm cả matmul attention).
+
+    FlopCounterMode đếm FLOP = 2 × MAC cho conv/linear/matmul, nên GMAC = FLOP / 2 / 1e9.
+    """
+    from torch.utils.flop_counter import FlopCounterMode
     device = next(model.parameters()).device; was_training = model.training; model.eval()
-    with torch.inference_mode():
-        macs, _ = profile(model, inputs=(torch.zeros(1,3,img_size,img_size,device=device),), verbose=False)
+    counter = FlopCounterMode(display=False)
+    with torch.no_grad(), counter:
+        model(torch.zeros(1, 3, img_size, img_size, device=device))
     model.train(was_training)
-    return float(macs / 1e9)
+    return float(counter.get_total_flops() / 2 / 1e9)

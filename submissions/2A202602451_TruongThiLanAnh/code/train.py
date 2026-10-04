@@ -147,6 +147,11 @@ def run(cfg):
             summary=json.loads(summary_path.read_text(encoding="utf-8")); summary["skipped_completed"]=True
             print(f"{cfg.exp_id}: đã hoàn tất, bỏ qua huấn luyện lại")
             return summary
+    # Đã train đủ epoch và có best.pt nhưng dừng ở bước hậu kỳ (ví dụ lỗi khi đếm GMAC): không train lại.
+    history_path=out/"history.csv"; checkpoint=out/"best.pt"
+    trained=(cfg.resume_completed and config_path.is_file() and checkpoint.is_file() and history_path.is_file()
+             and json.loads(config_path.read_text(encoding="utf-8"))==asdict(cfg)
+             and len(pd.read_csv(history_path))==cfg.epochs)
     config_path.write_text(json.dumps(asdict(cfg),indent=2),encoding="utf-8")
     train_df,val_df,test_df=dataset.load_split(cfg.labels_dir,cfg.fold)
     report=dataset.check_split(train_df,val_df,test_df,cfg.images_dir)
@@ -164,8 +169,12 @@ def run(cfg):
     scheduler=build_scheduler(optimizer,cfg,updates_per_epoch)
     scaler=torch.amp.GradScaler("cuda",enabled=cfg.amp and device.type=="cuda")
     ema=EMA(net,cfg.ema_decay) if cfg.ema_decay else None
-    checkpoint=out/"best.pt"; history=[]; best=-float("inf"); best_epoch=-1
-    for epoch in range(1,cfg.epochs+1):
+    history=[]; best=-float("inf"); best_epoch=-1
+    if trained:
+        history=pd.read_csv(history_path).to_dict("records")
+        best_epoch=int(torch.load(checkpoint,map_location="cpu",weights_only=True)["epoch"])
+        print(f"{cfg.exp_id}: đã train đủ {cfg.epochs} epoch, dùng lại best.pt (epoch {best_epoch}) và hoàn tất phần còn lại")
+    for epoch in range(1,cfg.epochs+1) if not trained else ():
         row={"epoch":epoch}; row.update(train_one_epoch(net,train_loader,criterion,optimizer,scheduler,scaler,cfg,device,ema))
         evaluated=ema.model if ema else net
         _,y,logits,val_loss=evaluate(evaluated,val_loader,criterion,device); probs=_probs(logits)
