@@ -1,0 +1,17 @@
+stage,exp_id,backbone,img_size,physical_batch,effective_batch,epochs,planned_runs,seconds_epoch_measured,estimated_hours,status,notes
+1,B01,resnet50,224,,,10,1,,,planned,Measure one epoch first
+1,B02,convnext_tiny,224,,,10,1,,,planned,Measure one epoch first
+1,B03,efficientnet_b0,224,,,10,1,,,planned,Measure one epoch first
+1,B04,mobilenetv3_large_100,224,,,10,1,,,planned,Measure one epoch first
+1,B05,deit_tiny_patch16_224,224,,,10,1,,,planned,Transformer requirement
+2,T00,SELECTED_BACKBONE,224,,,10,1,,,planned,Baseline
+2,T01,SELECTED_BACKBONE,224,,,10,1,,,planned,Frozen backbone
+2,T02,SELECTED_BACKBONE,224,,,10,1,,,planned,Scratch
+2,T03,SELECTED_BACKBONE,224,,,10,1,,,planned,Color augmentation
+2,T04,SELECTED_BACKBONE,224,,,10,1,,,planned,RandAugment
+2,T05,SELECTED_BACKBONE,224,,,10,1,,,planned,Label smoothing
+2,T06,SELECTED_BACKBONE,224,,,10,1,,,planned,Focal loss
+2,T07,SELECTED_BACKBONE,224,,,10,1,,,planned,Weighted CE
+2,T08,SELECTED_BACKBONE,224,,,10,1,,,planned,Best combination
+4,F01,FINAL_BACKBONE,224,,,10,3,,,planned,Seeds 0 1 2
+4,T00,SELECTED_BACKBONE,224,,,10,2,,,planned,Additional baseline seeds 1 2
