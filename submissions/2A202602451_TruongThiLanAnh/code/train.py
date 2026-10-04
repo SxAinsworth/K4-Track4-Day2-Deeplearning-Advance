@@ -8,6 +8,7 @@ import pandas as pd
 import torch
 from torch.nn import functional as F
 import dataset, losses, model as model_utils
+import benchmark
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
@@ -30,6 +31,9 @@ class Config:
     out_dir: str = "runs"; pred_dir: str = "predictions"; curves_dir: str = "curves"
     save_test_predictions: bool = False
     debug_train_samples: int | None = None; debug_val_samples: int | None = None
+    measure_latency: bool = False; latency_dtype: str = "amp"
+    latency_warmup: int = 10; latency_iters: int = 30
+    resume_completed: bool = True
 
 
 def run_dir(cfg): return Path(cfg.out_dir)/cfg.exp_id/f"seed{cfg.seed}"
@@ -82,10 +86,16 @@ def train_one_epoch(net, loader, criterion, optimizer, scheduler, scaler, cfg, d
         if cfg.mix: images,targets=losses.mix_batch(images,labels,cfg.mix_alpha,cfg.mix)
         with torch.autocast(device_type=device.type,enabled=amp):
             logits=net(images); loss=losses.mixed_loss(criterion,logits,targets) if cfg.mix else criterion(logits,labels)
+        if not torch.isfinite(loss):
+            raise FloatingPointError("Loss train không hữu hạn; kiểm tra AMP, LR và batch")
         scaler.scale(loss/cfg.grad_accum_steps).backward()
         if (step+1)%cfg.grad_accum_steps==0 or step+1==len(loader):
-            scaler.step(optimizer); scaler.update(); optimizer.zero_grad(set_to_none=True); scheduler.step()
-            if ema: ema.update(net)
+            old_scale=scaler.get_scale(); scaler.step(optimizer); scaler.update()
+            step_succeeded=scaler.get_scale() >= old_scale
+            optimizer.zero_grad(set_to_none=True)
+            if step_succeeded:
+                scheduler.step()
+                if ema: ema.update(net)
         total += float(loss.detach())*len(images); items += len(images)
     return {"train_loss":total/max(1,items),"lr":max(g["lr"] for g in optimizer.param_groups),
             "train_seconds":time.perf_counter()-start}
@@ -97,6 +107,8 @@ def evaluate(net, loader, criterion, device):
         for images,labels,batch_names in loader:
             images=images.to(device,non_blocking=True); labels_dev=labels.to(device,non_blocking=True)
             logits=net(images); loss=criterion(logits,labels_dev)
+            if not torch.isfinite(logits).all() or not torch.isfinite(loss):
+                raise FloatingPointError("Logit/loss validation không hữu hạn; kiểm tra AMP, LR và dữ liệu")
             names.extend(batch_names); targets.append(labels.numpy()); outputs.append(logits.cpu().numpy())
             total += float(loss)*len(images); items += len(images)
     return names,np.concatenate(targets),np.concatenate(outputs),total/items
@@ -127,7 +139,14 @@ def _probs(logits): return F.softmax(torch.from_numpy(logits),dim=1).numpy()
 def run(cfg):
     if cfg.grad_accum_steps < 1: raise ValueError("grad_accum_steps phải >= 1")
     set_seed(cfg.seed); out=run_dir(cfg); out.mkdir(parents=True,exist_ok=True)
-    (out/"config.json").write_text(json.dumps(asdict(cfg),indent=2),encoding="utf-8")
+    summary_path=out/"summary.json"; config_path=out/"config.json"
+    if cfg.resume_completed and summary_path.is_file() and config_path.is_file() and pred_path(cfg,"val").is_file():
+        saved=json.loads(config_path.read_text(encoding="utf-8"))
+        if saved==asdict(cfg):
+            summary=json.loads(summary_path.read_text(encoding="utf-8")); summary["skipped_completed"]=True
+            print(f"{cfg.exp_id}: đã hoàn tất, bỏ qua huấn luyện lại")
+            return summary
+    config_path.write_text(json.dumps(asdict(cfg),indent=2),encoding="utf-8")
     train_df,val_df,test_df=dataset.load_split(cfg.labels_dir,cfg.fold)
     report=dataset.check_split(train_df,val_df,test_df,cfg.images_dir)
     (out/"split_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
@@ -162,11 +181,21 @@ def run(cfg):
     if test_loader is not None:
         names,yt,lt,_=evaluate(net,test_loader,criterion,device)
         save_predictions(pred_path(cfg,"test"),names,yt,_probs(lt)); np.save(out/"test_logits.npy",lt)
-    plot_curves(history,Path(cfg.curves_dir)/f"{cfg.exp_id}_seed{cfg.seed}.png",f"{cfg.exp_id} — {cfg.backbone}")
+    architecture=cfg.backbone.split(".")[0]
+    curve_path=Path(cfg.curves_dir)/f"{cfg.exp_id}_{architecture}.png"
+    plot_curves(history,curve_path,f"{cfg.exp_id} — {cfg.backbone}")
+    gmac=model_utils.count_gmacs(net,cfg.img_size)
+    latency={}
+    if cfg.measure_latency:
+        latency=benchmark.latency_report(net,1,cfg.img_size,cfg.latency_dtype,str(device),cfg.latency_warmup,cfg.latency_iters)
     summary={"best_epoch":best_epoch,"val_macro_f1":metrics["macro_f1"],"val_top1":metrics["top1"],
              "val_loss":val_loss,"params_m":model_utils.count_params(net),
-             "mean_train_seconds":float(np.mean([r["train_seconds"] for r in history]))}
-    (out/"summary.json").write_text(json.dumps(summary,indent=2),encoding="utf-8"); return summary
+             "gmac":gmac,"mean_train_seconds":float(np.mean([r["train_seconds"] for r in history])),
+             "exp_id":cfg.exp_id,"backbone":architecture,"pretrained_tag":cfg.backbone,
+             "img_size":cfg.img_size,"epochs":cfg.epochs,"seed":cfg.seed,
+             "physical_batch":cfg.batch_size,"effective_batch":cfg.batch_size*cfg.grad_accum_steps,
+             "curve":str(curve_path),"history":str(out/"history.csv"),"latency":latency}
+    summary_path.write_text(json.dumps(summary,indent=2),encoding="utf-8"); return summary
 
 
 def _coerce(value,default):
