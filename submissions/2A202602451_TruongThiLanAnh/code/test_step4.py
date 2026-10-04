@@ -31,4 +31,13 @@ class TestStep4(unittest.TestCase):
             np.testing.assert_allclose(got_probs,np.mean(probabilities,axis=0))
 
 
+    def test_step4_reuses_step2_baseline(self):
+        # Cùng config => train.run bỏ qua T00 đã xong ở Bước 2 thay vì huấn luyện lại và ghi đè log.
+        from dataclasses import asdict
+        from step2_training import baseline_config
+        a=baseline_config("artifacts","resnet50.a1_in1k",1,12,64); b=baseline_config("artifacts","resnet50.a1_in1k",1,12,64)
+        self.assertEqual(asdict(a),asdict(b))
+        self.assertTrue(a.save_test_predictions); self.assertEqual(a.exp_id,"T00")
+
+
 if __name__=="__main__": unittest.main()

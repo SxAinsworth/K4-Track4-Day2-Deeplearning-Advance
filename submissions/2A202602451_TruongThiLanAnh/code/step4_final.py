@@ -12,6 +12,7 @@ import pandas as pd
 from PIL import Image
 
 import inference
+from step2_training import baseline_config
 from train import Config, run
 
 ROOT=Path(__file__).resolve().parents[3]
@@ -151,17 +152,25 @@ def run_final(artifact_root: str | Path,labels_dir="data/labels",images_dir="dat
     lock={"locked_from_validation":True,"backbone":training["backbone"],"training_source":training["exp_id"],
           "training_overrides":training.get("overrides",{}),"inference":"I07_temperature_scaling",
           "temperature_source":"fit separately on validation logits for each seed","seeds":[0,1,2],
-          "epochs":epochs,"batch_size":batch_size,"step3_selection":inference_selection}
+          "epochs":epochs,"batch_size":batch_size,
+          "step3_methods":{"offline":inference_selection.get("offline_method"),"realtime":inference_selection.get("realtime_method")}}
+    # Chỉ so các trường định nghĩa cấu hình; số đo (độ trễ, T) có thể dao động khi chạy lại notebook.
+    core=("backbone","training_source","training_overrides","inference","seeds","epochs","batch_size")
     lock_path=root/"final_lock.json"
-    if lock_path.exists() and json.loads(lock_path.read_text(encoding="utf-8"))!=lock:
-        raise RuntimeError("final_lock.json đã tồn tại với cấu hình khác; không được đổi cấu hình sau khi mở test")
-    lock_path.write_text(json.dumps(lock,indent=2,ensure_ascii=False),encoding="utf-8")
+    if lock_path.exists():
+        saved=json.loads(lock_path.read_text(encoding="utf-8"))
+        changed=[key for key in core if saved.get(key)!=lock[key]]
+        if changed:
+            raise RuntimeError(f"final_lock.json đã khóa cấu hình khác ở {changed}; không được đổi cấu hình sau khi mở test")
+        lock=saved
+    else:
+        lock_path.write_text(json.dumps(lock,indent=2,ensure_ascii=False),encoding="utf-8")
 
     temperatures=[]
     for seed in lock["seeds"]:
         run(_config(root,"F01",seed,training["backbone"],epochs,batch_size,training.get("overrides",{})))
         temperatures.append(_calibrate_saved_predictions(root,seed,labels_dir))
-        run(_config(root,"T00",seed,training["backbone"],epochs,batch_size,{}))
+        run(baseline_config(root,training["backbone"],seed,epochs,batch_size))  # tái sử dụng T00 của Bước 2
 
     latency_p95=float(i07.p95_ms.iloc[0]); _run_eval(root,labels_dir,latency_p95)
     metrics,true_idx,pred_idx,count=_error_analysis(root,images_dir)

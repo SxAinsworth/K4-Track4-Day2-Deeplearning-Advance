@@ -57,6 +57,15 @@ def _cfg(root,backbone,exp_id,seed,epochs,batch_size,overrides):
                   out_dir=str(root/"runs"),pred_dir=str(root/"predictions"),curves_dir=str(root/"curves"),**overrides)
 
 
+def baseline_config(root,backbone,seed,epochs,batch_size):
+    """T00 dùng chung cho Bước 2 (đo nhiễu) và Bước 4 (mốc): cùng config nên Bước 4 tái sử dụng, không huấn luyện lại.
+
+    Logit test được lưu ngay khi chạy nhưng chỉ được mở ở Bước 4 (GUIDE N2).
+    """
+    return _cfg(Path(root),backbone,"T00",seed,epochs,batch_size,
+                {"curve_label":f"baseline_seed{seed}","save_test_predictions":True})
+
+
 def run_training_ablations(artifact_root: str | Path, epochs: int = 12,
                            batch_size: int = 64) -> dict:
     root=Path(artifact_root); selection_path=root/"backbone_selection.json"
@@ -65,8 +74,7 @@ def run_training_ablations(artifact_root: str | Path, epochs: int = 12,
 
     baseline=[]
     for seed in (0,1,2):
-        cfg=_cfg(root,backbone,"T00",seed,epochs,batch_size,{"curve_label":f"baseline_seed{seed}"})
-        baseline.append(run(cfg))
+        baseline.append(run(baseline_config(root,backbone,seed,epochs,batch_size)))
     base0=baseline[0]["val_macro_f1"]
     noise_std=float(np.std([x["val_macro_f1"] for x in baseline],ddof=1))
     records=[_record(item,"Baseline","T00",None,noise_std) for item in baseline]

@@ -78,10 +78,18 @@ def _write_sheets(inference_frame,latency_frame,path):
                     sheet.cell(row,frame.columns.get_loc(name)+1).number_format="0.0000"
 
 
-def run_inference_comparison(artifact_root: str | Path, labels_dir="data/labels", images_dir="data/images"):
+def run_inference_comparison(artifact_root: str | Path, labels_dir="data/labels", images_dir="data/images", force=False):
     root=Path(artifact_root); recipe_path=root/"training_selection.json"
     if not recipe_path.is_file(): raise FileNotFoundError("Chưa có training_selection.json; chạy Bước 2 trước")
     recipe=json.loads(recipe_path.read_text(encoding="utf-8")); backbone=recipe["backbone"]; exp_id=recipe["exp_id"]
+    # Run all lần nữa: giữ nguyên kết quả đã đo cho cùng checkpoint, để số độ trễ không đổi giữa các sheet.
+    saved=root/"inference_selection.json"
+    if not force and saved.is_file() and (root/"inference.csv").is_file() and (root/"latency.csv").is_file():
+        selection=json.loads(saved.read_text(encoding="utf-8"))
+        if selection.get("base_checkpoint_exp_id")==exp_id and selection.get("backbone")==backbone:
+            print(f"Bước 3: đã có kết quả cho checkpoint {exp_id}; dùng lại (force=True để đo lại)")
+            return {"inference":pd.read_csv(root/"inference.csv"),"latency":pd.read_csv(root/"latency.csv"),
+                    "selection":selection,"results_xlsx":str(root/"results.xlsx")}
     overrides=recipe.get("overrides",{}); init=overrides.get("init","finetune")
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     checkpoint=root/"runs"/exp_id/"seed0"/"best.pt"
