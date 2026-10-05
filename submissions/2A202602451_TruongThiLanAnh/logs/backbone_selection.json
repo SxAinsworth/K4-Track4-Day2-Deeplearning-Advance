@@ -1,0 +1,8 @@
+{
+  "best_quality": "B03",
+  "best_quality_backbone": "deit_small_patch16_224.fb_in1k",
+  "balanced": "B02",
+  "balanced_backbone": "convnext_tiny.fb_in1k",
+  "rule": "balanced = fastest model within 0.02 macro-F1 of the best validation result",
+  "caution": "Backbone screening uses one seed; small differences are not conclusive."
+}

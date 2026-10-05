@@ -1,0 +1,42 @@
+{
+  "best_epoch": 11,
+  "val_macro_f1": 0.762678174342675,
+  "val_top1": 0.8163381890888317,
+  "val_loss": 0.5654313825975313,
+  "params_m": 21.669129,
+  "val_f1_per_class": [
+    0.6666666666666666,
+    0.7295285359801489,
+    0.8550000000000001,
+    0.6985074626865672,
+    0.8064516129032258,
+    0.7666666666666667,
+    0.8027210884353742,
+    0.6684931506849315,
+    0.8700683850604946
+  ],
+  "val_recall_per_class": [
+    0.5955555555555555,
+    0.6901408450704225,
+    0.8300970873786407,
+    0.5735294117647058,
+    0.8254716981132075,
+    0.7970297029702971,
+    0.8232558139534883,
+    0.6009852216748769,
+    0.9082921471718836
+  ],
+  "gmac": 4.59850176,
+  "mean_train_seconds": 35.97891545933347,
+  "exp_id": "T01",
+  "backbone": "deit_small_patch16_224",
+  "pretrained_tag": "deit_small_patch16_224.fb_in1k",
+  "img_size": 224,
+  "epochs": 12,
+  "seed": 0,
+  "physical_batch": 64,
+  "effective_batch": 64,
+  "curve": "/content/drive/MyDrive/DeepWeeds_Day2_2A202602451/curves/T01_frozen_backbone.png",
+  "history": "/content/drive/MyDrive/DeepWeeds_Day2_2A202602451/runs/T01/seed0/history.csv",
+  "latency": {}
+}

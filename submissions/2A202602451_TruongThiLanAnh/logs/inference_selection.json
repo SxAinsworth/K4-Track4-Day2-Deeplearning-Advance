@@ -1,0 +1,8 @@
+{
+  "temperature": 0.870874510676128,
+  "offline_method": "I05",
+  "realtime_method": "I05",
+  "realtime_p95_ms": 18.891596899629803,
+  "base_checkpoint_exp_id": "T06",
+  "backbone": "deit_small_patch16_224.fb_in1k"
+}

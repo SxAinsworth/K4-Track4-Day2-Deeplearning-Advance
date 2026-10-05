@@ -5,6 +5,7 @@
 - Notebook: `code/lab_day2.ipynb`
 - Kế hoạch thực nghiệm: `experiment_plan.md`
 - Bảng ngân sách GPU: `gpu_budget.csv`
+- Mở trên Colab: [lab_day2.ipynb](https://colab.research.google.com/github/SxAinsworth/K4-Track4-Day2-Deeplearning-Advance/blob/main/submissions/2A202602451_TruongThiLanAnh/code/lab_day2.ipynb)
 
 ## Môi trường
 
@@ -39,6 +40,13 @@ data/
 ```
 
 Không commit dataset hoặc checkpoint vào Git. Sau khi giải nén, cần xác nhận `IMAGES_DIR` trỏ trực tiếp đến thư mục chứa các file `.jpg`.
+
+## Cách chạy lại
+
+1. Mở link Colab ở trên, chọn **Runtime → Change runtime type → T4 GPU**.
+2. **Runtime → Run all**. Ô đầu tự clone repo; ô cài đặt mount Google Drive và lưu checkpoint/log vào `MyDrive/DeepWeeds_Day2_2A202602451`.
+3. Nếu runtime bị ngắt, chạy lại **Run all**: các lượt đã xong được bỏ qua, chỉ lượt dang dở phải train lại. Không đổi `EPOCHS`/`BATCH_SIZE` sau khi Bước 4 đã khóa cấu hình (`final_lock.json`).
+4. Ô cuối gom file nộp (`results.xlsx`, `report.md`, `curves/`, `predictions/`, …), chép lên Drive và tải `.zip` về.
 
 ## Thứ tự chạy
 

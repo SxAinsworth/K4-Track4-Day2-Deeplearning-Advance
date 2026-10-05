@@ -1,0 +1,16 @@
+{
+  "backbone": "deit_small_patch16_224.fb_in1k",
+  "exp_id": "T06",
+  "overrides": {
+    "mix": "cutmix",
+    "mix_alpha": 1.0
+  },
+  "val_macro_f1": 0.9570270298494093,
+  "baseline_seed0": 0.9509588848473027,
+  "baseline_std": 0.0017351059463352582,
+  "combo_components": [
+    "T06",
+    "T08"
+  ],
+  "combo_interaction": "c\u1ed9ng d\u1ed3n m\u1ed9t ph\u1ea7n / c\u00f3 t\u01b0\u01a1ng t\u00e1c"
+}
